@@ -1,0 +1,10 @@
+---
+- hosts: all
+  remote_user: centos
+  tasks:
+
+  - name: Set authorized key taken from file
+    authorized_key:
+      user: centos
+      state: present
+      key: "{{ lookup('file', '/home/centos/id_rsa.pub.jdemeul') }}"

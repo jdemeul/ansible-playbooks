@@ -1,0 +1,25 @@
+---
+- hosts: all
+  remote_user: centos
+  become: yes
+  become_user: root
+  tasks:
+  - name: upgrade all packages
+    yum:
+      name: '*'
+      state: latest
+
+  - name: install yum packages
+    yum:
+      name: screen,vim-enhanced,tmux,sysstat,wget,unzip,epel-release
+
+  - name: install yum Development Tools
+    yum:
+      name: "@Development tools"
+
+  - name: install more yum packages
+    yum:
+      name: python-pip,python-wheel,Lmod,lsof,htop,iotop,libibverbs,libibverbs-devel,openssl-devel,tcl-devel,tk-devel,pango-devel,libffi,psmisc,rrdtool,xz-devel
+
+  - name: update pip and setuptools
+    command: pip install -U pip setuptools

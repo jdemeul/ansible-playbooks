@@ -1,0 +1,47 @@
+---
+- hosts: cvslurm23-frontend
+  remote_user: centos
+  become: yes
+  become_user: root
+  tasks:
+
+  - name: install virtualenv
+    command: pip install virtualenv
+
+  - name: install easybuild via pip
+    pip:
+      name: EasyBuild
+
+  - name: create easybuild installation folder
+    file:
+      path: /srv/sw/eb/
+      state: directory
+      owner: centos
+      group: vanloo
+      mode: 0755
+      recurse: yes
+
+  - name: create easybuild.d config folder
+    file:
+      path: /etc/easybuild.d/
+      state: directory
+
+  - name: put easybuild.cfg file in place
+    copy:
+      src: cluster_conf-data/modules-cluster.cfg
+      dest: /etc/easybuild.d/modules.cfg
+      mode: 0644
+
+  - name: add easybuild installpath to Lmod MODULEPATH automatically
+    copy:
+      src: cluster_conf-data/z00-modulepath-cluster.sh
+      dest: /etc/profile.d/z00-modulepath.sh
+      mode: 0644
+
+  - name: adding sw mount to exports
+    lineinfile:
+      name: /etc/exports
+      line: '/srv/sw/eb compute001(ro,no_root_squash,async,no_subtree_check,crossmnt) compute002(ro,no_root_squash,async,no_subtree_check,crossmnt) compute003(ro,no_root_squash,async,no_subtree_check,crossmnt) compute004(ro,no_root_squash,async,no_subtree_check,crossmnt) compute005(ro,no_root_squash,async,no_subtree_check,crossmnt) compute006(ro,no_root_squash,async,no_subtree_check,crossmnt) compute007(ro,no_root_squash,async,no_subtree_check,crossmnt) compute008(ro,no_root_squash,async,no_subtree_check,crossmnt) compute009(ro,no_root_squash,async,no_subtree_check,crossmnt) compute010(ro,no_root_squash,async,no_subtree_check,crossmnt) compute011(ro,no_root_squash,async,no_subtree_check,crossmnt) compute012(ro,no_root_squash,async,no_subtree_check,crossmnt) compute013(ro,no_root_squash,async,no_subtree_check,crossmnt) compute014(ro,no_root_squash,async,no_subtree_check,crossmnt) compute015(ro,no_root_squash,async,no_subtree_check,crossmnt) compute016(ro,no_root_squash,async,no_subtree_check,crossmnt) compute017(ro,no_root_squash,async,no_subtree_check,crossmnt) compute018(ro,no_root_squash,async,no_subtree_check,crossmnt) compute019(ro,no_root_squash,async,no_subtree_check,crossmnt) compute020(ro,no_root_squash,async,no_subtree_check,crossmnt) compute021(ro,no_root_squash,async,no_subtree_check,crossmnt) compute022(ro,no_root_squash,async,no_subtree_check,crossmnt) compute023(ro,no_root_squash,async,no_subtree_check,crossmnt) compute024(ro,no_root_squash,async,no_subtree_check,crossmnt) compute025(ro,no_root_squash,async,no_subtree_check,crossmnt) compute026(ro,no_root_squash,async,no_subtree_check,crossmnt) compute027(ro,no_root_squash,async,no_subtree_check,crossmnt) compute028(ro,no_root_squash,async,no_subtree_check,crossmnt) compute029(ro,no_root_squash,async,no_subtree_check,crossmnt) compute030(ro,no_root_squash,async,no_subtree_check,crossmnt) compute031(ro,no_root_squash,async,no_subtree_check,crossmnt) compute032(ro,no_root_squash,async,no_subtree_check,crossmnt) compute033(ro,no_root_squash,async,no_subtree_check,crossmnt) compute034(ro,no_root_squash,async,no_subtree_check,crossmnt) compute035(ro,no_root_squash,async,no_subtree_check,crossmnt) compute036(ro,no_root_squash,async,no_subtree_check,crossmnt) compute037(ro,no_root_squash,async,no_subtree_check,crossmnt) compute038(ro,no_root_squash,async,no_subtree_check,crossmnt) compute039(ro,no_root_squash,async,no_subtree_check,crossmnt) compute040(ro,no_root_squash,async,no_subtree_check,crossmnt)'
+
+  - name: export sw
+    command: exportfs -a
