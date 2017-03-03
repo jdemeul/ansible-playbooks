@@ -1,0 +1,97 @@
+---
+- hosts: all
+  remote_user: centos
+  become: yes
+  become_user: root
+  tasks:
+  - name: upgrade all packages
+    yum:
+      name: '*'
+      state: latest
+
+  - name: install yum packages
+    yum:
+      name: screen,vim-enhanced,tmux,sysstat,wget,unzip,epel-release
+
+  - name: install yum Development Tools
+    yum:
+      name: "@Development tools"
+
+  - name: install more yum packages
+    yum:
+      name: python-pip,python-wheel,Lmod,htop,iotop,libibverbs,libibverbs-devel,openssl-devel,tcl-devel,tk-devel,pango-devel,libffi,psmisc,rrdtool,xz-devel
+
+  - name: update pip and setuptools
+    command: pip install -U pip setuptools
+
+  - name: install virtualenv
+    command: pip install virtualenv
+
+  - name: install easybuild via pip
+    pip:
+      name: EasyBuild
+
+
+  - group:
+      name: vanloo
+      state: present
+
+
+  - name: create easybuild installation folder
+    file:
+      path: /srv/data/sw/eb/
+      state: directory
+      owner: centos
+      group: vanloo
+      mode: 0775
+      recurse: yes
+
+  - name: create easybuild.d config folder
+    file:
+      path: /etc/easybuild.d/
+      state: directory
+
+  - name: put easybuild.cfg file in place
+    copy:
+      src: instance_conf-data/modules.cfg
+      dest: /etc/easybuild.d/modules.cfg
+      mode: 0644
+
+  - name: put ifcfg-eth1 file in place
+    copy:
+      src: instance_conf-data/ifcfg-eth1
+      dest: /etc/sysconfig/network-scripts/ifcfg-eth1
+      mode: 0644
+
+  - name: add easybuild installpath to Lmod MODULEPATH automatically
+    copy:
+      src: instance_conf-data/z00-modulepath.sh
+      dest: /etc/profile.d/z00-modulepath.sh
+      mode: 0644
+
+
+  - include_vars: users.yml
+
+  - name: Add users | create users, shell, home dirs
+    user: name={{ item.username }} shell=/bin/bash createhome=yes group=vanloo comment='create with ansible'
+    with_items: '{{users}}'
+
+  - name: Setup | authorized key upload
+    authorized_key: user={{ item.username }}
+      key="{{ lookup('file', 'pub_keys/{{ item.username }}.pub') }}"
+    with_items: '{{users}}'
+
+  - name: Sudoers | update sudoers file and validate
+    lineinfile: "dest=/etc/sudoers
+      insertafter=EOF
+      line='{{ item.username }} ALL=(ALL) NOPASSWD: ALL'
+      regexp='^{{ item.username }} .*'
+      state=present"
+    when: '{{ item.use_sudo }} == True'
+    with_items: '{{users}}'
+
+
+  - name: restarting network service
+    service:
+      name: network
+      state: restarted

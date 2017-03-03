@@ -1,0 +1,88 @@
+---
+- hosts: all
+  remote_user: centos
+  become: yes
+  tasks:
+
+  - name: create mountpoint for the shared storage
+    file:
+      path: /mnt/share
+      state: directory
+      owner: centos
+      group: vanloo
+      mode: 0655
+      recurse: yes
+
+  - name: create folder for Java installation
+    file:
+      path: /usr/easybuild/easyconfigs/j/Java/j/Java/
+      state: directory
+      owner: centos
+      group: vanloo
+      mode: 0755
+      recurse: yes
+
+  - name: put downloaded jdk-8u112 tarball in place for install
+    copy:
+      src: instance_conf-data/jdk-8u112-linux-x64.tar.gz
+      dest: /usr/easybuild/easyconfigs/j/Java/j/Java/jdk-8u112-linux-x64.tar.gz
+
+  - name: put downloaded R-3.2.3-foss-2016a.eb in place for install
+    copy:
+      src: instance_conf-data/R-3.2.3-foss-2016a.eb
+      dest: /home/centos/R-3.3.2-goolf-1.7.20.eb
+
+  - name: put downloaded R-bundle-Bioconductor-3.2-foss-2016a-R-3.2.3.eb in place for install
+    copy:
+      src: instance_conf-data/R-bundle-Bioconductor-3.2-foss-2016a-R-3.2.3.eb
+      dest: /home/centos/R-bundle-Bioconductor-3.2-foss-2016a-R-3.2.3.eb
+
+  - name: put downloaded GCCcore-4.9.3.eb in place for install
+    copy:
+      src: instance_conf-data/GCCcore-4.9.3.eb
+      dest: /home/centos/GCCcore-4.9.3.eb
+
+  - name: adding shared storage mount to fstab
+    lineinfile:
+      name: /etc/fstab
+      line: '10.253.192.54:/emed/bulk/tcga-test      /mnt/share      nfs     ro,noauto,user  0       0'
+
+  - name: mount shared storage
+    mount:
+      name: /mnt/share
+      src: 10.253.192.54:/emed/bulk/tcga-test
+      fstype: nfs
+      opts: ro
+      state: mounted
+
+  # - name: clone Adam's repository
+  #   git:
+  #     repo: https://github.com/verdurin/easybuild-easyconfigs-devel.git
+  #     dest: /usr/easybuild/easyconfigs/easybuild-easyconfigs-devel/
+
+  - name: install Java with easybuild
+    become_user: centos
+    command: eb Java-1.8.0_112.eb --robot
+
+  - name: install R and Bioconductor via easybuild
+    become_user: centos
+    command: eb /home/centos/GCCcore-4.9.3.eb /home/centos/R-3.3.2-goolf-1.7.20.eb /home/centos/R-bundle-Bioconductor-3.2-foss-2016a-R-3.2.3.eb --robot
+
+  - name: download rstudio-server
+    get_url:
+      url: https://download2.rstudio.org/rstudio-server-rhel-1.0.136-x86_64.rpm
+      dest: /home/centos/rstudio-server-rhel-1.0.136-x86_64.rpm
+
+  - name: install rstudio server
+    yum:
+      name: /home/centos/rstudio-server-rhel-1.0.136-x86_64.rpm
+      disable_gpg_check: yes
+      state: present
+
+  - name: configure rstudio-server
+    lineinfile:
+      name: /etc/rstudio/rserver.conf
+      line: 'rsession-which-r=/srv/data/sw/eb/software/R/3.2.3-foss-2016a/bin/R'
+
+  - name: start rstudio-server
+    command: rstudio-server start
