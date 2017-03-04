@@ -40,22 +40,22 @@
   - name: install R and Bioconductor via easybuild
     become_user: centos
     command: eb /home/centos/GCCcore-4.9.3.eb /home/centos/R-3.2.3-foss-2016a.eb /home/centos/R-bundle-Bioconductor-3.2-foss-2016a-R-3.2.3.eb --robot
-  #
-  # - name: download rstudio-server
-  #   get_url:
-  #     url: https://download2.rstudio.org/rstudio-server-rhel-1.0.136-x86_64.rpm
-  #     dest: /home/centos/rstudio-server-rhel-1.0.136-x86_64.rpm
-  #
-  # - name: install rstudio server
-  #   yum:
-  #     name: /home/centos/rstudio-server-rhel-1.0.136-x86_64.rpm
-  #     disable_gpg_check: yes
-  #     state: present
-  #
-  # - name: configure rstudio-server
-  #   lineinfile:
-  #     name: /etc/rstudio/rserver.conf
-  #     line: 'rsession-which-r=/srv/data/sw/eb/software/R/3.2.3-foss-2016a/bin/R'
 
-  # - name: start rstudio-server
-  #   command: rstudio-server start
+  - name: download rstudio-server
+    get_url:
+      url: https://download2.rstudio.org/rstudio-server-rhel-1.0.136-x86_64.rpm
+      dest: /home/centos/rstudio-server-rhel-1.0.136-x86_64.rpm
+
+  - name: install rstudio server
+    yum:
+      name: /home/centos/rstudio-server-rhel-1.0.136-x86_64.rpm
+      disable_gpg_check: yes
+      state: present
+
+  - name: configure rstudio-server
+    lineinfile:
+      name: /etc/rstudio/rserver.conf
+      line: 'rsession-which-r=/srv/sw/eb/software/R/3.2.3-foss-2016a/bin/R'
+
+  - name: start rstudio-server
+    command: rstudio-server start
