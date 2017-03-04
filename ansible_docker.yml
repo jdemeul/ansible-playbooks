@@ -1,0 +1,141 @@
+---
+- hosts: all
+  remote_user: docker
+  become: yes
+  become_user: root
+  tasks:
+  - name: upgrade all packages
+    yum:
+      name: '*'
+      state: latest
+
+  - name: install yum Development Tools
+    yum:
+      name: "@Development tools"
+
+  - name: install EPEL repo
+    yum:
+      name: epel-release
+
+  - name: install yum packages
+    yum:
+      name: screen,wget,unzip,yum-utils,python-pip,python-wheel,zlib-devel
+
+  - name: Add Docker repository
+    command: 'yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo'
+
+  - name: Add Docker-edge repository
+    command: 'yum-config-manager --enable docker-ce-edge'
+
+  # - name: Add Docker repository
+  #   yum_repository:
+  #     name: docker-ce
+  #     description: Docker Repository
+  #     baseurl: https://download.docker.com/linux/centos/docker-ce.repo
+
+  - name: install docker-ce
+    yum:
+      name: docker-ce
+
+  - name: update pip and setuptools
+    command: pip install -U pip setuptools==25.1.6
+
+  - name: install cwltools via pip
+    command: 'pip install cwl-runner cwltool==1.0.20161114152756 schema-salad==1.18.20161005190847 avro==1.8.1'
+
+  - name: put downloaded jdk-8u121 tarball in place for install
+    copy:
+      src: docker_conf-data/jdk-8u121-linux-x64.rpm
+      dest: /home/docker/jdk-8u121-linux-x64.rpm
+
+  - name: install Java with yum
+    yum:
+      state: present
+      name: /home/docker/jdk-8u121-linux-x64.rpm
+
+
+  - name: put ifcfg-eth1 file in place
+    copy:
+      src: instance_conf-data/ifcfg-eth1
+      dest: /etc/sysconfig/network-scripts/ifcfg-eth1
+      mode: 0644
+
+  - name: restarting network service
+    service:
+      name: network
+      state: restarted
+
+  - group:
+      name: vanloo
+      state: present
+
+  - include_vars: users.yml
+
+  - name: Add users | create users, shell, home dirs
+    user: name={{ item.username }} shell=/bin/bash createhome=yes group=vanloo comment='create with ansible'
+    with_items: '{{users}}'
+
+  - name: Setup | authorized key upload
+    authorized_key: user={{ item.username }}
+      key="{{ lookup('file', 'pub_keys/{{ item.username }}.pub') }}"
+    with_items: '{{users}}'
+
+  - name: Sudoers | update sudoers file and validate
+    lineinfile: "dest=/etc/sudoers
+      insertafter=EOF
+      line='{{ item.username }} ALL=(ALL) NOPASSWD: ALL'
+      regexp='^{{ item.username }} .*'
+      state=present"
+    when: '{{ item.use_sudo }} == True'
+    with_items: '{{users}}'
+
+
+  - name: put dockstore config file in place
+    copy:
+      src: docker_conf-data/dockstore-config
+      dest: /home/docker/.dockstore/config
+      owner: docker
+      group: docker
+      mode: 0755
+
+  - name:
+    command: systemctl start docker
+
+
+  - name: create mountpoint for the shared storage
+    file:
+      path: /mnt/share
+      state: directory
+      owner: centos
+      group: vanloo
+      mode: 0655
+      recurse: yes
+
+  - name: mount shared storage
+    mount:
+      name: /mnt/share
+      src: '10.253.192.54:/emed/bulk/tcga-test'
+      fstype: nfs
+      opts: ro,noauto,user
+      state: mounted
+
+  - name: create folder for dockstore
+    file:
+      path: /opt/docker
+      state: directory
+      owner: docker
+      group: docker
+      mode: 0755
+      recurse: yes
+
+  - name: download dockstore
+    get_url:
+      url: https://github.com/ga4gh/dockstore/releases/download/1.1/dockstore
+      dest: /opt/docker/dockstore
+      mode: 0755
+
+  - name: create link
+    file:
+      src: /opt/docker/dockstore
+      dest: /usr/local/bin/dockstore
+      state: link
