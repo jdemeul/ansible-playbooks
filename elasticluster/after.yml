@@ -1,0 +1,219 @@
+---
+#
+# This playbook is for site-local customization to ElastiCluster's
+# playbooks.  It runs *after* any other playbook distributed with
+# ElastiCluster has gotten its chance to run.
+#
+# An empty playbook is checked into the Git repository.  If you make
+# any local modifications, please run `git update-index
+# --assume-unchanged after.yml` to avoid committing them accidentally
+# into ElastiCluster's main branch.
+#
+- name: Apply local customizations (after)
+  tags:
+    - after
+    - local
+  hosts: all
+  # by default these are no-op (empty task list)
+  roles: []
+  tasks:
+  - name: put ifcfg-eth1 file in place
+    copy:
+      force: no
+      src: /home/jdemeul/instance_conf-data/ifcfg-eth1
+      dest: /etc/sysconfig/network-scripts/ifcfg-eth1
+      mode: 0644
+
+  - group:
+      name: vanloo
+      state: present
+
+  - include_vars: /home/jdemeul/users.yml
+
+  - name: Add users | create users, shell, home dirs
+    user: name={{ item.username }} shell=/bin/bash createhome=yes group=vanloo comment='create with ansible'
+    with_items: '{{users}}'
+
+  - name: Setup | authorized key upload
+    authorized_key: user={{ item.username }}
+      key="{{ lookup('file', '/home/jdemeul/pub_keys/{{ item.username }}.pub') }}"
+    with_items: '{{users}}'
+
+  - name: Sudoers | update sudoers file and validate
+    lineinfile: "dest=/etc/sudoers
+      insertafter=EOF
+      line='{{ item.username }} ALL=(ALL) NOPASSWD: ALL'
+      regexp='^{{ item.username }} .*'
+      state=present"
+    when: '{{ item.use_sudo }} == True'
+    with_items: '{{users}}'
+
+  - name: restarting network service
+    service:
+      name: network
+      state: restarted
+
+  - name: create mountpoint for the shared storage
+    file:
+      path: /srv/shared
+      state: directory
+      owner: centos
+      group: vanloo
+      mode: 0755
+
+  - name: create easybuild installation folder
+    file:
+      path: /srv/sw/eb/
+      state: directory
+      owner: centos
+      group: vanloo
+      mode: 0755
+
+  - name: mount shared storage
+    mount:
+      name: /srv/shared/
+      src: 10.253.192.54:/emed/bulk/tcga-test
+      fstype: nfs
+      opts: defaults
+      state: mounted
+
+
+- name: Apply frontend customizations (after)
+  tags:
+    - after
+    - local
+  hosts: slurm_master
+  tasks:
+  - name: install yum Development Tools
+    yum:
+      name: "@Development tools"
+
+  - name: install more yum packages
+    yum:
+      name: screen,vim-enhanced,tmux,sysstat,wget,unzip,python-pip,python-wheel,Lmod,zlib,zlib-devel,lsof,htop,iotop,libibverbs,libibverbs-devel,openssl-devel,tcl-devel,tk-devel,pango-devel,libffi,psmisc,rrdtool,xz-devel
+
+  - name: update pip and setuptools
+    command: pip install -U pip setuptools
+
+  - name: install virtualenv
+    command: pip install virtualenv
+
+  - name: install easybuild via pip
+    pip:
+      name: EasyBuild
+
+  - name: create easybuild.d config folder
+    file:
+      path: /etc/easybuild.d/
+      state: directory
+
+  - name: put easybuild.cfg file in place
+    copy:
+      force: no
+      src: /home/jdemeul/cluster_conf-data/modules-cluster.cfg
+      dest: /etc/easybuild.d/modules.cfg
+      mode: 0644
+
+  - name: add easybuild installpath to Lmod MODULEPATH automatically
+    copy:
+      src: /home/jdemeul/cluster_conf-data/z00-modulepath-cluster.sh
+      dest: /etc/profile.d/z00-modulepath.sh
+      mode: 0644
+
+  - name: adding sw mount to exports
+    lineinfile:
+      name: /etc/exports
+      line: '/srv/sw/eb compute001(ro,no_root_squash,async,no_subtree_check,crossmnt) compute002(ro,no_root_squash,async,no_subtree_check,crossmnt)'
+
+  - name: export sw
+    command: exportfs -a
+
+
+- name: Apply worker customizations (after)
+  tags:
+    - after
+    - local
+  hosts: slurm_worker
+  tasks:
+
+  - name: mount shared sw folder
+    mount:
+      name: /srv/sw/eb
+      src: 'frontend001:/srv/sw/eb'
+      fstype: nfs
+      opts: ro,async,auto
+      state: mounted
+
+  - name: add easybuild installpath to Lmod MODULEPATH automatically
+    copy:
+      force: no
+      src: /home/jdemeul/cluster_conf-data/z00-modulepath-cluster.sh
+      dest: /etc/profile.d/z00-modulepath.sh
+      mode: 0755
+
+
+- name: Apply final frontend customizations (after)
+  tags:
+    - local
+    - after
+  hosts: slurm_master
+  tasks:
+  - name: create folder for Java tarball
+    file:
+      path: /usr/easybuild/easyconfigs/j/Java/j/Java/
+      state: directory
+      owner: centos
+      group: vanloo
+      mode: 0755
+
+  - name: put downloaded jdk-8u112 tarball in place for install
+    copy:
+      force: no
+      src: /home/jdemeul/instance_conf-data/jdk-8u112-linux-x64.tar.gz
+      dest: /usr/easybuild/easyconfigs/j/Java/j/Java/jdk-8u112-linux-x64.tar.gz
+
+  - name: put downloaded R-3.2.3-foss-2016a.eb in place for install
+    copy:
+      force: no
+      src: /home/jdemeul/instance_conf-data/R-3.2.3-foss-2016a.eb
+      dest: /home/centos/R-3.2.3-foss-2016a.eb
+
+  - name: put downloaded R-bundle-Bioconductor-3.2-foss-2016a-R-3.2.3.eb in place for install
+    copy:
+      force: no
+      src: /home/jdemeul/instance_conf-data/R-bundle-Bioconductor-3.2-foss-2016a-R-3.2.3.eb
+      dest: /home/centos/R-bundle-Bioconductor-3.2-foss-2016a-R-3.2.3.eb
+
+  - name: put downloaded GCCcore-4.9.3.eb in place for install
+    copy:
+      force: no
+      src: /home/jdemeul/instance_conf-data/GCCcore-4.9.3.eb
+      dest: /home/centos/GCCcore-4.9.3.eb
+
+  - name: install Java with easybuild
+    become_user: centos
+    command: eb Java-1.8.0_112.eb --robot
+
+  - name: install R and Bioconductor via easybuild
+    become_user: centos
+    command: eb /home/centos/GCCcore-4.9.3.eb /home/centos/R-3.2.3-foss-2016a.eb /home/centos/R-bundle-Bioconductor-3.2-foss-2016a-R-3.2.3.eb --robot
+
+  - name: download rstudio-server
+    get_url:
+      force: no
+      url: https://download2.rstudio.org/rstudio-server-rhel-1.0.136-x86_64.rpm
+      dest: /home/centos/rstudio-server-rhel-1.0.136-x86_64.rpm
+
+  - name: install rstudio server
+    yum:
+      name: /home/centos/rstudio-server-rhel-1.0.136-x86_64.rpm
+      disable_gpg_check: yes
+      state: present
+
+  - name: configure rstudio-server
+    lineinfile:
+      name: /etc/rstudio/rserver.conf
+      line: 'rsession-which-r=/srv/sw/eb/software/R/3.2.3-foss-2016a/bin/R'
+  #
+  # - name: start rstudio-server
+  #   command: rstudio-server start
