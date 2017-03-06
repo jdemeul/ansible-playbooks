@@ -19,7 +19,6 @@
       owner: centos
       group: vanloo
       mode: 0755
-      recurse: yes
 
   - name: create easybuild.d config folder
     file:
@@ -31,6 +30,7 @@
       src: cluster_conf-data/modules-cluster.cfg
       dest: /etc/easybuild.d/modules.cfg
       mode: 0644
+      force: no
 
   - name: add easybuild installpath to Lmod MODULEPATH automatically
     copy:

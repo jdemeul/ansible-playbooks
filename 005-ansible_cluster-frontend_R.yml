@@ -11,27 +11,30 @@
       owner: centos
       group: vanloo
       mode: 0755
-      recurse: yes
 
   - name: put downloaded jdk-8u112 tarball in place for install
     copy:
       src: instance_conf-data/jdk-8u112-linux-x64.tar.gz
       dest: /usr/easybuild/easyconfigs/j/Java/j/Java/jdk-8u112-linux-x64.tar.gz
+      force: no
 
   - name: put downloaded R-3.2.3-foss-2016a.eb in place for install
     copy:
       src: instance_conf-data/R-3.2.3-foss-2016a.eb
       dest: /home/centos/R-3.2.3-foss-2016a.eb
+      force: no
 
   - name: put downloaded R-bundle-Bioconductor-3.2-foss-2016a-R-3.2.3.eb in place for install
     copy:
       src: instance_conf-data/R-bundle-Bioconductor-3.2-foss-2016a-R-3.2.3.eb
       dest: /home/centos/R-bundle-Bioconductor-3.2-foss-2016a-R-3.2.3.eb
+      force: no
 
   - name: put downloaded GCCcore-4.9.3.eb in place for install
     copy:
       src: instance_conf-data/GCCcore-4.9.3.eb
       dest: /home/centos/GCCcore-4.9.3.eb
+      force: no
 
   - name: install Java with easybuild
     become_user: centos

@@ -108,8 +108,7 @@
       state: directory
       owner: centos
       group: vanloo
-      mode: 0655
-      recurse: yes
+      mode: 0755
 
   - name: mount shared storage
     mount:
@@ -126,7 +125,6 @@
       owner: docker
       group: docker
       mode: 0755
-      recurse: yes
 
   - name: download dockstore
     get_url:

@@ -44,7 +44,6 @@
       owner: centos
       group: vanloo
       mode: 0775
-      recurse: yes
 
   - name: create easybuild.d config folder
     file:

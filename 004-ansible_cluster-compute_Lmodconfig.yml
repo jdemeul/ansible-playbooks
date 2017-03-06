@@ -10,7 +10,6 @@
       path: /srv/sw/eb
       state: directory
       mode: 0755
-      recurse: yes
 
   - name: mount shared sw folder
     mount:
@@ -25,3 +24,4 @@
       src: cluster_conf-data/z00-modulepath-cluster.sh
       dest: /etc/profile.d/z00-modulepath.sh
       mode: 0755
+      force: no
