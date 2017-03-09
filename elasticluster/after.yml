@@ -214,6 +214,6 @@
     lineinfile:
       name: /etc/rstudio/rserver.conf
       line: 'rsession-which-r=/srv/sw/eb/software/R/3.2.3-foss-2016a/bin/R'
-  #
-  # - name: start rstudio-server
-  #   command: rstudio-server start
+
+  - name: start rstudio-server
+    command: rstudio-server start
