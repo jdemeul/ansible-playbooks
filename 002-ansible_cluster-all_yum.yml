@@ -21,5 +21,9 @@
     yum:
       name: python-pip,python-wheel,Lmod,zlib,zlib-devel,lsof,htop,iotop,libibverbs,libibverbs-devel,openssl-devel,tcl-devel,tk-devel,pango-devel,libffi,psmisc,rrdtool,xz-devel
 
+  - name: install more yum packages
+    yum:
+      name: libXtst,libXt,libXmu
+
   - name: update pip and setuptools
     command: pip install -U pip setuptools
