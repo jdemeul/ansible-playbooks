@@ -89,6 +89,13 @@
     when: '{{ item.use_sudo }} == True'
     with_items: '{{users}}'
 
+  - name: create dockstore folder
+    file:
+      path: /home/docker/.dockstore/
+      state: directory
+      owner: docker
+      group: docker
+      mode: 0755
 
   - name: put dockstore config file in place
     copy:
@@ -98,7 +105,7 @@
       group: docker
       mode: 0755
 
-  - name:
+  - name: start docker service
     command: systemctl start docker
 
 
