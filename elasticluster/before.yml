@@ -21,3 +21,9 @@
     yum:
       name: '*'
       state: latest
+
+  - name: start nfs service
+    systemd:
+      enabled: yes
+      state: started
+      name: nfs

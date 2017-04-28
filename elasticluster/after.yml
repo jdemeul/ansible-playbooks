@@ -27,11 +27,12 @@
   - group:
       name: vanloo
       state: present
+      gid: 1002
 
   - include_vars: /home/jdemeul/users.yml
 
   - name: Add users | create users, shell, home dirs
-    user: name={{ item.username }} shell=/bin/bash createhome=yes group=vanloo comment='create with ansible'
+    user: name={{ item.username }} uid={{ item.userid }} shell=/bin/bash createhome=yes group=vanloo comment='create with ansible'
     with_items: '{{users}}'
 
   - name: Setup | authorized key upload
@@ -77,13 +78,6 @@
       opts: defaults
       state: mounted
 
-
-- name: Apply frontend customizations (after)
-  tags:
-    - after
-    - local
-  hosts: slurm_master
-  tasks:
   - name: install yum Development Tools
     yum:
       name: "@Development tools"
@@ -91,6 +85,31 @@
   - name: install more yum packages
     yum:
       name: screen,vim-enhanced,tmux,sysstat,wget,unzip,python-pip,python-wheel,Lmod,zlib,zlib-devel,lsof,htop,iotop,libibverbs,libibverbs-devel,openssl-devel,tcl-devel,tk-devel,pango-devel,libffi,psmisc,rrdtool,xz-devel
+
+
+- name: Apply frontend customizations (after)
+  tags:
+    - after
+    - local
+  hosts: slurm_master
+  tasks:
+
+  - include_vars: /home/jdemeul/users.yml
+
+  - name: Create vanloo account for cluster
+    tags:
+      - slurm
+    shell: |
+      sacctmgr --immediate --parsable --noheader list account Cluster=elasticluster  | grep '^vanloo|' \
+        || sacctmgr -i --quiet add account vanloo Cluster=elasticluster
+
+  - name: Add users to slurm accounting
+    tags:
+      - slurm
+    shell: |
+      sacctmgr --immediate --parsable --noheader list user Account='{{item.username}}' | grep '^{{item.username}}|' \
+        || sacctmgr --immediate --quiet add user '{{item.username}}' DefaultAccount=vanloo
+    with_items: '{{users}}'
 
   - name: update pip and setuptools
     command: pip install -U pip setuptools
@@ -123,7 +142,7 @@
   - name: adding sw mount to exports
     lineinfile:
       name: /etc/exports
-      line: '/srv/sw/eb compute001(ro,no_root_squash,async,no_subtree_check,crossmnt) compute002(ro,no_root_squash,async,no_subtree_check,crossmnt)'
+      line: '/srv/sw/eb compute001(ro,no_root_squash,async,no_subtree_check,crossmnt) compute002(ro,no_root_squash,async,no_subtree_check,crossmnt) compute003(ro,no_root_squash,async,no_subtree_check,crossmnt) compute004(ro,no_root_squash,async,no_subtree_check,crossmnt) compute005(ro,no_root_squash,async,no_subtree_check,crossmnt) compute006(ro,no_root_squash,async,no_subtree_check,crossmnt) compute007(ro,no_root_squash,async,no_subtree_check,crossmnt) compute008(ro,no_root_squash,async,no_subtree_check,crossmnt) compute009(ro,no_root_squash,async,no_subtree_check,crossmnt) compute010(ro,no_root_squash,async,no_subtree_check,crossmnt) compute011(ro,no_root_squash,async,no_subtree_check,crossmnt) compute012(ro,no_root_squash,async,no_subtree_check,crossmnt) compute013(ro,no_root_squash,async,no_subtree_check,crossmnt) compute014(ro,no_root_squash,async,no_subtree_check,crossmnt) compute015(ro,no_root_squash,async,no_subtree_check,crossmnt) compute016(ro,no_root_squash,async,no_subtree_check,crossmnt) compute017(ro,no_root_squash,async,no_subtree_check,crossmnt) compute018(ro,no_root_squash,async,no_subtree_check,crossmnt) compute019(ro,no_root_squash,async,no_subtree_check,crossmnt) compute020(ro,no_root_squash,async,no_subtree_check,crossmnt)'
 
   - name: export sw
     command: exportfs -a
@@ -149,7 +168,7 @@
       force: no
       src: /home/jdemeul/cluster_conf-data/z00-modulepath-cluster.sh
       dest: /etc/profile.d/z00-modulepath.sh
-      mode: 0755
+      mode: 0644
 
 
 - name: Apply final frontend customizations (after)
