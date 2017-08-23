@@ -31,15 +31,14 @@
     pip:
       name: EasyBuild
 
-
   - group:
       name: vanloo
       state: present
-
+      gid: 1002
 
   - name: create easybuild installation folder
     file:
-      path: /srv/data/sw/eb/
+      path: /srv/sw/eb/
       state: directory
       owner: centos
       group: vanloo
@@ -52,19 +51,19 @@
 
   - name: put easybuild.cfg file in place
     copy:
-      src: instance_conf-data/modules.cfg
+      src: modules.cfg
       dest: /etc/easybuild.d/modules.cfg
       mode: 0644
 
   - name: put ifcfg-eth1 file in place
     copy:
-      src: instance_conf-data/ifcfg-eth1
+      src: ifcfg-eth1
       dest: /etc/sysconfig/network-scripts/ifcfg-eth1
       mode: 0644
 
   - name: add easybuild installpath to Lmod MODULEPATH automatically
     copy:
-      src: instance_conf-data/z00-modulepath.sh
+      src: z00-modulepath.sh
       dest: /etc/profile.d/z00-modulepath.sh
       mode: 0644
 
@@ -72,7 +71,7 @@
   - include_vars: users.yml
 
   - name: Add users | create users, shell, home dirs
-    user: name={{ item.username }} uid={{ item.userid }} shell=/bin/bash createhome=yes group=vanloo comment='create with ansible'
+    user: name={{ item.username }} uid={{ item.userid }} shell=/bin/bash createhome=yes group=vanloo password={{ user_pass }} comment='create with ansible'
     with_items: '{{users}}'
 
   - name: Setup | authorized key upload
@@ -80,13 +79,9 @@
       key="{{ lookup('file', 'pub_keys/{{ item.username }}.pub') }}"
     with_items: '{{users}}'
 
-  - name: Sudoers | update sudoers file and validate
-    lineinfile: "dest=/etc/sudoers
-      insertafter=EOF
-      line='{{ item.username }} ALL=(ALL) NOPASSWD: ALL'
-      regexp='^{{ item.username }} .*'
-      state=present"
-    when: '{{ item.use_sudo }} == True'
+  - name: Sudoers | add users to wheel
+    user: name={{ item.username }} append=yes groups=vanloo,wheel
+    when: item.use_sudo == True
     with_items: '{{users}}'
 
 
