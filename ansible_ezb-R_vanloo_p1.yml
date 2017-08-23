@@ -19,7 +19,7 @@
 
   - name: install more yum packages
     yum:
-      name: python-pip,python-wheel,Lmod,htop,iotop,libibverbs,libibverbs-devel,openssl-devel,tcl-devel,tk-devel,pango-devel,libffi,psmisc,rrdtool,xz-devel
+      name: python-pip,python-wheel,zsh,Lmod,htop,iotop,libibverbs,libibverbs-devel,openssl-devel,tcl-devel,tk-devel,pango-devel,libffi,psmisc,rrdtool,xz-devel,zlib,zlib-devel,lsof,libXtst,libXt,libXmu
 
   - name: update pip and setuptools
     command: pip install -U pip setuptools
@@ -72,7 +72,7 @@
   - include_vars: users.yml
 
   - name: Add users | create users, shell, home dirs
-    user: name={{ item.username }} shell=/bin/bash createhome=yes group=vanloo comment='create with ansible'
+    user: name={{ item.username }} uid={{ item.userid }} shell=/bin/bash createhome=yes group=vanloo comment='create with ansible'
     with_items: '{{users}}'
 
   - name: Setup | authorized key upload
