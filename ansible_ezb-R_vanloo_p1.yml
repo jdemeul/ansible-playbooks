@@ -1,8 +1,18 @@
 ---
-- hosts: all
+#
+# This playbook together with its second part, will configure 
+# an instance according to the vanloo lab specs: installing 
+# software, users, keys etc and attaching shared volumes.
+#
+#
+- name: Configure instance
+  tags:
+    - vanloo
+  hosts: all
   remote_user: centos
   become: yes
   become_user: root
+  roles: []
   tasks:
   - name: upgrade all packages
     yum:
@@ -84,8 +94,16 @@
     when: item.use_sudo == True
     with_items: '{{users}}'
 
-
   - name: restarting network service
     service:
       name: network
       state: restarted
+
+  - name: make sure DNS settings are correct
+    lineinfile:
+      path: /etc/resolv.conf
+      regexpr: '^nameserver'
+      line: 'nameserver 8.8.8.8'
+      owner: root
+      group: root
+      mode: 0644
