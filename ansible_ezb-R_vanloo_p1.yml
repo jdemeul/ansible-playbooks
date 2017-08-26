@@ -71,6 +71,19 @@
       dest: /etc/sysconfig/network-scripts/ifcfg-eth1
       mode: 0644
 
+  - name: bring eth1 up
+    shell: |
+      ip a show eth1 up || ifup eth1
+
+  - name: restore correct DNS settings
+    lineinfile:
+      path: /etc/resolv.conf
+      regexp: '^nameserver'
+      line: 'nameserver 8.8.8.8'
+      owner: root
+      group: root
+      mode: 0644
+
   - name: add easybuild installpath to Lmod MODULEPATH automatically
     copy:
       src: z00-modulepath.sh
@@ -94,16 +107,3 @@
     when: item.use_sudo == True
     with_items: '{{users}}'
 
-  - name: restarting network service
-    service:
-      name: network
-      state: restarted
-
-  - name: make sure DNS settings are correct
-    lineinfile:
-      path: /etc/resolv.conf
-      regexpr: '^nameserver'
-      line: 'nameserver 8.8.8.8'
-      owner: root
-      group: root
-      mode: 0644

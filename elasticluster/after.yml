@@ -20,8 +20,21 @@
   - name: put ifcfg-eth1 file in place
     copy:
       force: no
-      src: /home/jdemeul/instance_conf-data/ifcfg-eth1
+      src: /home/jdemeul/instance_config/ifcfg-eth1
       dest: /etc/sysconfig/network-scripts/ifcfg-eth1
+      mode: 0644
+
+  - name: bring eth1 up
+    shell: |
+      ip a show eth1 up || ifup eth1
+
+  - name: reapply correct DNS settings
+    lineinfile:
+      path: /etc/resolv.conf
+      regexp: '^nameserver'
+      line: 'nameserver 8.8.8.8'
+      owner: root
+      group: root
       mode: 0644
 
   - group:
@@ -29,30 +42,21 @@
       state: present
       gid: 1002
 
-  - include_vars: /home/jdemeul/users.yml
+  - include_vars: /home/jdemeul/instance_config/users.yml
 
   - name: Add users | create users, shell, home dirs
-    user: name={{ item.username }} uid={{ item.userid }} shell=/bin/bash createhome=yes group=vanloo comment='create with ansible'
+    user: name={{ item.username }} uid={{ item.userid }} shell=/bin/bash createhome=yes group=vanloo password={{ user_pass }} comment='create with ansible'
     with_items: '{{users}}'
 
   - name: Setup | authorized key upload
     authorized_key: user={{ item.username }}
-      key="{{ lookup('file', '/home/jdemeul/pub_keys/{{ item.username }}.pub') }}"
+      key="{{ lookup('file', '/home/jdemeul/instance_config/pub_keys/{{ item.username }}.pub') }}"
     with_items: '{{users}}'
 
-  - name: Sudoers | update sudoers file and validate
-    lineinfile: "dest=/etc/sudoers
-      insertafter=EOF
-      line='{{ item.username }} ALL=(ALL) NOPASSWD: ALL'
-      regexp='^{{ item.username }} .*'
-      state=present"
-    when: '{{ item.use_sudo }} == True'
+  - name: Sudoers | add users to wheel
+    user: name={{ item.username }} append=yes groups=vanloo,wheel
+    when: item.use_sudo == True
     with_items: '{{users}}'
-
-  - name: restarting network service
-    service:
-      name: network
-      state: restarted
 
   - name: create mountpoint for the shared storage
     file:
@@ -73,7 +77,7 @@
   - name: mount shared storage
     mount:
       name: /srv/shared/
-      src: 10.253.192.54:/emed/bulk/tcga-test
+      src: 10.248.192.54:/emed/bulk/tcga-test
       fstype: nfs
       opts: defaults
       state: mounted
@@ -94,7 +98,7 @@
   hosts: slurm_master
   tasks:
 
-  - include_vars: /home/jdemeul/users.yml
+  - include_vars: /home/jdemeul/instance_config/users.yml
 
   - name: Create vanloo account for cluster
     tags:
@@ -129,20 +133,20 @@
   - name: put easybuild.cfg file in place
     copy:
       force: no
-      src: /home/jdemeul/cluster_conf-data/modules-cluster.cfg
+      src: /home/jdemeul/instance_config/modules-cluster.cfg
       dest: /etc/easybuild.d/modules.cfg
       mode: 0644
 
   - name: add easybuild installpath to Lmod MODULEPATH automatically
     copy:
-      src: /home/jdemeul/cluster_conf-data/z00-modulepath-cluster.sh
+      src: /home/jdemeul/instance_config/z00-modulepath-cluster.sh
       dest: /etc/profile.d/z00-modulepath.sh
       mode: 0644
 
   - name: adding sw mount to exports
     lineinfile:
       name: /etc/exports
-      line: '/srv/sw/eb compute001(ro,no_root_squash,async,no_subtree_check,crossmnt) compute002(ro,no_root_squash,async,no_subtree_check,crossmnt) compute003(ro,no_root_squash,async,no_subtree_check,crossmnt) compute004(ro,no_root_squash,async,no_subtree_check,crossmnt) compute005(ro,no_root_squash,async,no_subtree_check,crossmnt) compute006(ro,no_root_squash,async,no_subtree_check,crossmnt) compute007(ro,no_root_squash,async,no_subtree_check,crossmnt) compute008(ro,no_root_squash,async,no_subtree_check,crossmnt) compute009(ro,no_root_squash,async,no_subtree_check,crossmnt) compute010(ro,no_root_squash,async,no_subtree_check,crossmnt) compute011(ro,no_root_squash,async,no_subtree_check,crossmnt) compute012(ro,no_root_squash,async,no_subtree_check,crossmnt) compute013(ro,no_root_squash,async,no_subtree_check,crossmnt) compute014(ro,no_root_squash,async,no_subtree_check,crossmnt) compute015(ro,no_root_squash,async,no_subtree_check,crossmnt) compute016(ro,no_root_squash,async,no_subtree_check,crossmnt) compute017(ro,no_root_squash,async,no_subtree_check,crossmnt) compute018(ro,no_root_squash,async,no_subtree_check,crossmnt) compute019(ro,no_root_squash,async,no_subtree_check,crossmnt) compute020(ro,no_root_squash,async,no_subtree_check,crossmnt)'
+      line: '/srv/sw/eb compute001(ro,no_root_squash,async,no_subtree_check,crossmnt) compute002(ro,no_root_squash,async,no_subtree_check,crossmnt)'
 
   - name: export sw
     command: exportfs -a
@@ -177,66 +181,45 @@
     - after
   hosts: slurm_master
   tasks:
-  - name: create folder for Java tarball
-    file:
-      path: /usr/easybuild/easyconfigs/j/Java/j/Java/
-      state: directory
-      owner: centos
-      group: vanloo
-      mode: 0755
 
-  - name: put downloaded jdk-8u112 tarball in place for install
+  - name: Copy new easyconfigs and sources (GATK + Java)
     copy:
-      force: no
-      src: /home/jdemeul/instance_conf-data/jdk-8u112-linux-x64.tar.gz
-      dest: /usr/easybuild/easyconfigs/j/Java/j/Java/jdk-8u112-linux-x64.tar.gz
+      src: /home/jdemeul/instance_config/easyconfigs
+      dest: /home/centos/
 
-  - name: put downloaded R-3.2.3-foss-2016a.eb in place for install
-    copy:
-      force: no
-      src: /home/jdemeul/instance_conf-data/R-3.2.3-foss-2016a.eb
-      dest: /home/centos/R-3.2.3-foss-2016a.eb
-
-  - name: put downloaded R-bundle-Bioconductor-3.2-foss-2016a-R-3.2.3.eb in place for install
-    copy:
-      force: no
-      src: /home/jdemeul/instance_conf-data/R-bundle-Bioconductor-3.2-foss-2016a-R-3.2.3.eb
-      dest: /home/centos/R-bundle-Bioconductor-3.2-foss-2016a-R-3.2.3.eb
-
-  - name: put downloaded GCCcore-4.9.3.eb in place for install
-    copy:
-      force: no
-      src: /home/jdemeul/instance_conf-data/GCCcore-4.9.3.eb
-      dest: /home/centos/GCCcore-4.9.3.eb
-
-  - name: install Java with easybuild
+  - name: install easybuild packages
     become_user: centos
-    command: eb Java-1.8.0_112.eb --robot
-
-  - name: install R and Bioconductor via easybuild
-    become_user: centos
-    command: eb /home/centos/GCCcore-4.9.3.eb /home/centos/R-3.2.3-foss-2016a.eb /home/centos/R-bundle-Bioconductor-3.2-foss-2016a-R-3.2.3.eb --robot
-
-  - name: install BEDtools, SAMtools and Impute2
-    become_user: centos
-    command: eb BEDTools-2.26.0-foss-2016a.eb IMPUTE2-2.3.2_x86_64_dynamic.eb SAMtools-1.3.1-foss-2016a.eb
+    command: "eb {{ item }} -r"
+    with_items:
+      - Java-1.8.0_141.eb
+      - R-3.4.1-foss-2016b-X11-20160819.eb
+      - R-bundle-Bioconductor-3.5-foss-2016b-R-3.4.1.eb
+      - BWA-0.7.15-foss-2016b.eb
+      - TopHat-2.1.1-foss-2016b.eb
+      - Bowtie2-2.2.9-foss-2016b.eb
+      - BEDTools-2.26.0-foss-2016b.eb
+      - SAMtools-1.4-foss-2016b.eb
+      - IMPUTE2-2.3.2_x86_64_dynamic.eb
+      - GATK-3.8-Java-1.8.0_141.eb
+      - picard-2.10.10-Java-1.8.0_141.eb
+      - Circos-0.69-5-foss-2016b-Perl-5.24.0.eb
+      - Python-3.5.2-foss-2016b.eb
 
   - name: download rstudio-server
     get_url:
-      force: no
-      url: https://download2.rstudio.org/rstudio-server-rhel-1.0.136-x86_64.rpm
-      dest: /home/centos/rstudio-server-rhel-1.0.136-x86_64.rpm
+      url: https://download2.rstudio.org/rstudio-server-rhel-1.0.153-x86_64.rpm
+      dest: /home/centos/rstudio-server-rhel-1.0.153-x86_64.rpm
 
   - name: install rstudio server
     yum:
-      name: /home/centos/rstudio-server-rhel-1.0.136-x86_64.rpm
+      name: /home/centos/rstudio-server-rhel-1.0.153-x86_64.rpm
       disable_gpg_check: yes
       state: present
 
   - name: configure rstudio-server
     lineinfile:
       name: /etc/rstudio/rserver.conf
-      line: 'rsession-which-r=/srv/sw/eb/software/R/3.2.3-foss-2016a/bin/R'
+      line: 'rsession-which-r=/srv/sw/eb/software/R/3.4.1-foss-2016b-X11-20160819/bin/R'
 
   - name: start rstudio-server
     command: rstudio-server start

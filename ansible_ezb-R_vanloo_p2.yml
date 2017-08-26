@@ -23,28 +23,26 @@
 
   - name: Copy new easyconfigs and sources (GATK + Java)
     copy:
-      src: instance_config/easyconfigs
+      src: /home/jdemeul/instance_config/easyconfigs
       dest: /home/centos/
 
-  - name: install Java with easybuild
+  - name: install easybuild packages
     become_user: centos
-    command: eb Java-1.8.0_141.eb -r --robot-paths :/home/centos/easyconfigs
-
-  - name: install R and Bioconductor via easybuild
-    become_user: centos
-    command: eb R-3.4.1-foss-2016b-X11-20160819.eb R-bundle-Bioconductor-3.5-foss-2016b-R-3.4.1.eb -r --robot-paths :/home/centos/easyconfigs
-
-  - name: install Picard and GATK via easybuild
-    become_user: centos
-    command: eb GATK-3.8-Java-1.8.0_141.eb picard-2.10.10-Java-1.8.0_141.eb -r --robot-paths :/home/centos/easyconfigs
-
-  - name: install Circos and Python3
-    become_user: centos
-    command: eb Circos-0.69-5-foss-2016b-Perl-5.24.0.eb Python-3.5.2-foss-2016b.eb -r
-
-  - name: install BWA, Bowtie, TopHat, SAMtools, BEDTools and IMPUTE2
-    become_user: centos
-    command: eb BWA-0.7.15-foss-2016b.eb TopHat-2.1.1-foss-2016b.eb Bowtie2-2.3.2-foss-2016b.eb BEDTools-2.26.0-foss-2016b.eb SAMtools-1.4-foss-2016b.eb IMPUTE2-2.3.2_x86_64_dynamic.eb	-r --robot-paths :/home/centos/easyconfigs
+    command: "eb {{ item }} -r"
+    with_items:
+      - Java-1.8.0_141.eb
+      - R-3.4.1-foss-2016b-X11-20160819.eb
+      - R-bundle-Bioconductor-3.5-foss-2016b-R-3.4.1.eb
+      - BWA-0.7.15-foss-2016b.eb
+      - TopHat-2.1.1-foss-2016b.eb
+      - Bowtie2-2.2.9-foss-2016b.eb
+      - BEDTools-2.26.0-foss-2016b.eb
+      - SAMtools-1.4-foss-2016b.eb
+      - IMPUTE2-2.3.2_x86_64_dynamic.eb
+      - GATK-3.8-Java-1.8.0_141.eb
+      - picard-2.10.10-Java-1.8.0_141.eb
+      - Circos-0.69-5-foss-2016b-Perl-5.24.0.eb
+      - Python-3.5.2-foss-2016b.eb
 
   - name: download rstudio-server
     get_url:
