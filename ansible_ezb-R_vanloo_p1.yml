@@ -72,8 +72,8 @@
       mode: 0644
 
   - name: bring eth1 up
-    shell: |
-      ip a show eth1 up || ifup eth1
+    command: ifup eth1
+    ignore_errors: True
 
   - name: restore correct DNS settings
     lineinfile:

@@ -25,8 +25,8 @@
       mode: 0644
 
   - name: bring eth1 up
-    shell: |
-      ip a show eth1 up || ifup eth1
+    command: ifup eth1
+    ignore_errors: True
 
   - name: reapply correct DNS settings
     lineinfile:
@@ -97,15 +97,14 @@
     - local
   hosts: slurm_master
   tasks:
-
-  - include_vars: /home/jdemeul/instance_config/users.yml
-
   - name: Create vanloo account for cluster
     tags:
       - slurm
     shell: |
       sacctmgr --immediate --parsable --noheader list account Cluster=elasticluster  | grep '^vanloo|' \
         || sacctmgr -i --quiet add account vanloo Cluster=elasticluster
+  
+  - include_vars: /home/jdemeul/instance_config/users.yml
 
   - name: Add users to slurm accounting
     tags:
@@ -133,20 +132,20 @@
   - name: put easybuild.cfg file in place
     copy:
       force: no
-      src: /home/jdemeul/instance_config/modules-cluster.cfg
+      src: /home/jdemeul/instance_config/modules.cfg
       dest: /etc/easybuild.d/modules.cfg
       mode: 0644
 
   - name: add easybuild installpath to Lmod MODULEPATH automatically
     copy:
-      src: /home/jdemeul/instance_config/z00-modulepath-cluster.sh
+      src: /home/jdemeul/instance_config/z00-modulepath.sh
       dest: /etc/profile.d/z00-modulepath.sh
       mode: 0644
 
   - name: adding sw mount to exports
     lineinfile:
       name: /etc/exports
-      line: '/srv/sw/eb compute001(ro,no_root_squash,async,no_subtree_check,crossmnt) compute002(ro,no_root_squash,async,no_subtree_check,crossmnt)'
+      line: '/srv/sw/eb compute*(ro,no_root_squash,async,no_subtree_check,crossmnt)'
 
   - name: export sw
     command: exportfs -a
@@ -170,7 +169,7 @@
   - name: add easybuild installpath to Lmod MODULEPATH automatically
     copy:
       force: no
-      src: /home/jdemeul/cluster_conf-data/z00-modulepath-cluster.sh
+      src: /home/jdemeul/instance_config/z00-modulepath.sh
       dest: /etc/profile.d/z00-modulepath.sh
       mode: 0644
 
@@ -194,6 +193,8 @@
       - Java-1.8.0_141.eb
       - R-3.4.1-foss-2016b-X11-20160819.eb
       - R-bundle-Bioconductor-3.5-foss-2016b-R-3.4.1.eb
+      - ASCAT-2.5-foss-2016b-R-3.4.1.eb
+      - Battenberg-2.2.6-foss-2016b-R-3.4.1.eb
       - BWA-0.7.15-foss-2016b.eb
       - TopHat-2.1.1-foss-2016b.eb
       - Bowtie2-2.2.9-foss-2016b.eb
