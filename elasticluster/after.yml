@@ -46,6 +46,7 @@
 
   - name: Add users | create users, shell, home dirs
     user: name={{ item.username }} uid={{ item.userid }} shell=/bin/bash createhome=yes group=vanloo password={{ user_pass }} comment='create with ansible'
+    when: item.username != 'centos'
     with_items: '{{users}}'
 
   - name: Setup | authorized key upload
@@ -66,14 +67,6 @@
       group: vanloo
       mode: 0755
 
-  - name: create easybuild installation folder
-    file:
-      path: /srv/sw/eb/
-      state: directory
-      owner: centos
-      group: vanloo
-      mode: 0755
-
   - name: mount shared storage
     mount:
       name: /srv/shared/
@@ -82,13 +75,9 @@
       opts: defaults
       state: mounted
 
-  - name: install yum Development Tools
-    yum:
-      name: "@Development tools"
-
   - name: install more yum packages
     yum:
-      name: screen,vim-enhanced,tmux,sysstat,wget,unzip,python-pip,python-wheel,Lmod,zlib,zlib-devel,lsof,htop,iotop,libibverbs,libibverbs-devel,openssl-devel,tcl-devel,tk-devel,pango-devel,libffi,psmisc,rrdtool,xz-devel,libXtst,libXt,libXmu
+      name: screen,vim-enhanced,tmux,sysstat,wget,zlib,zlib-devel,lsof,htop,iotop,libibverbs,libibverbs-devel,tcl-devel,tk-devel,pango-devel,libffi,psmisc,rrdtool,xz-devel,libXtst,libXt,libXmu
 
 
 - name: Apply frontend customizations (after)
@@ -96,6 +85,7 @@
     - after
     - local
   hosts: slurm_master
+  roles: []
   tasks:
   - name: Create vanloo account for cluster
     tags:
@@ -114,34 +104,6 @@
         || sacctmgr --immediate --quiet add user '{{item.username}}' DefaultAccount=vanloo
     with_items: '{{users}}'
 
-  - name: update pip and setuptools
-    command: pip install -U pip setuptools
-
-  - name: install virtualenv
-    command: pip install virtualenv
-
-  - name: install easybuild via pip
-    pip:
-      name: EasyBuild
-
-  - name: create easybuild.d config folder
-    file:
-      path: /etc/easybuild.d/
-      state: directory
-
-  - name: put easybuild.cfg file in place
-    copy:
-      force: no
-      src: /home/jdemeul/instance_config/modules.cfg
-      dest: /etc/easybuild.d/modules.cfg
-      mode: 0644
-
-  - name: add easybuild installpath to Lmod MODULEPATH automatically
-    copy:
-      src: /home/jdemeul/instance_config/z00-modulepath.sh
-      dest: /etc/profile.d/z00-modulepath.sh
-      mode: 0644
-
   - name: adding sw mount to exports
     lineinfile:
       name: /etc/exports
@@ -157,6 +119,18 @@
     - local
   hosts: slurm_worker
   tasks:
+  - name: unmount shared sw folder to make deletion safe
+    mount:
+      name: /srv/sw/eb
+      src: 'frontend001:/srv/sw/eb'
+      fstype: nfs
+      opts: ro,async,auto
+      state: unmounted
+
+  - name: remove own sw folder
+    file:
+      state: absent
+      path: /srv/sw/eb/
 
   - name: mount shared sw folder
     mount:
@@ -166,13 +140,6 @@
       opts: ro,async,auto
       state: mounted
 
-  - name: add easybuild installpath to Lmod MODULEPATH automatically
-    copy:
-      force: no
-      src: /home/jdemeul/instance_config/z00-modulepath.sh
-      dest: /etc/profile.d/z00-modulepath.sh
-      mode: 0644
-
 
 - name: Apply final frontend customizations (after)
   tags:
@@ -180,31 +147,44 @@
     - after
   hosts: slurm_master
   tasks:
+  - name: Set primary group centos user to easybuild
+    user: name=centos group=easybuild append=yes
+
+  - name: reset ssh connection to allow user changes to affect 'current login user'
+    shell: sleep 1; pkill -u {{ ansible_ssh_user }} sshd
+    async: 3
+    poll: 2
+
+  # - name: reset ssh connection to allow user changes to affect 'current login user'
+  #   meta: reset_connection
 
   - name: Copy new easyconfigs and sources (GATK + Java)
     copy:
       src: /home/jdemeul/instance_config/easyconfigs
       dest: /home/centos/
 
-  - name: install easybuild packages
+  - name: Build initial set of software
     become_user: centos
-    command: "eb {{ item }} -r"
+    command: eb {{ item }} -r --robot-paths :/home/centos/easyconfigs/
     with_items:
       - Java-1.8.0_141.eb
       - R-3.4.1-foss-2016b-X11-20160819.eb
       - R-bundle-Bioconductor-3.5-foss-2016b-R-3.4.1.eb
+      - IMPUTE2-2.3.2_x86_64_dynamic.eb
       - ASCAT-2.5-foss-2016b-R-3.4.1.eb
-      - Battenberg-2.2.6-foss-2016b-R-3.4.1.eb
       - BWA-0.7.15-foss-2016b.eb
       - TopHat-2.1.1-foss-2016b.eb
       - Bowtie2-2.2.9-foss-2016b.eb
       - BEDTools-2.26.0-foss-2016b.eb
       - SAMtools-1.4-foss-2016b.eb
-      - IMPUTE2-2.3.2_x86_64_dynamic.eb
       - GATK-3.8-Java-1.8.0_141.eb
       - picard-2.10.10-Java-1.8.0_141.eb
       - Circos-0.69-5-foss-2016b-Perl-5.24.0.eb
       - Python-3.5.2-foss-2016b.eb
+
+  - name: Build Battenberg using IMPUTE2 dependency
+    become_user: centos
+    command: eb Battenberg-2.2.6-foss-2016b-R-3.4.1.eb -r --robot-paths :/home/centos/easyconfigs/ --use-existing-modules
 
   - name: download rstudio-server
     get_url:

@@ -1,0 +1,11 @@
+# hpc-common/meta/main.yml
+---
+
+dependencies:
+  # install `lmod` to manage "environment module" files
+  - role: easybuild
+    EASYBUILD_VERSION: '3.3.1'
+    EASYBUILD_PREFIX: '/srv/sw/eb'
+    easybuild_bootstrap_url: 'https://raw.githubusercontent.com/easybuilders/easybuild-framework/develop/easybuild/scripts/bootstrap_eb.py'
+#  - role: lua
+#  - role: lmod
